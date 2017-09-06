@@ -33,10 +33,9 @@ cv::Mat E, R, t, mask, R_f, t_f; //variables for the function.
 std::vector<cv::Point2f> points1, points2, prevFeatures, currFeatures; //Vectors to store the coordinates of feature points.
 std::vector<uchar> status;
 double focal_length;
-double scale = 2.00; //TODO Figure out how to add or impliment scaling fundtion.
+double scale = 2.00; //TODO Figure out how to add or implement scaling function.
 
 bool init= false;
-
 
 void imageCallback(const sensor_msgs::ImageConstPtr& image, const sensor_msgs::CameraInfoConstPtr& cam_info)
 {
@@ -48,6 +47,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& image, const sensor_msgs::C
     {
      // TODO: Visualize Keypoints being tracked.   
       init_2_c = cv_bridge::toCvShare(image, "bgr8")->image;
+
       if (!init_1_c.empty() && !init_2_c.empty()) {
         std::cout << "Initializing..." << std::endl;
 
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
     cv::namedWindow("view");
     cv::startWindowThread();
-    message_filters::Subscriber<sensor_msgs::Image> image_sub(nh, "usb_cam/image_raw", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image_sub(nh, "/usb_cam/image_rect_color", 1);
     message_filters::Subscriber<sensor_msgs::CameraInfo> info_sub(nh, "usb_cam/camera_info", 1);
     message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::CameraInfo> sync(image_sub, info_sub, 10);
     sync.registerCallback(boost::bind(&imageCallback, _1, _2));

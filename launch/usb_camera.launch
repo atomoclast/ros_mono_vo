@@ -3,6 +3,12 @@
   <arg name="cam_id" default="1"/>
   <arg name="viewer" default="false" />
 
+  <arg name="manager" /> <!-- Must be globally qualified -->
+  <arg name="respawn" default="false" />
+
+  <arg     if="$(arg respawn)" name="bond" value="" />
+  <arg unless="$(arg respawn)" name="bond" value="--no-bond" />
+
   <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
     <param name="video_device" value="/dev/video$(arg cam_id)" />
     <param name="image_width" value="640" />
@@ -13,9 +19,16 @@
   </node>
 
   <group if="$(arg viewer)">
-  <node name="image_view" pkg="image_view" type="image_view" respawn="false" output="screen">
-    <remap from="image" to="/usb_cam/image_raw"/>
-    <param name="autosize" value="true" />
-  </node>
-</group>
+    <node name="image_view" pkg="image_view" type="image_view" respawn="false" output="screen">
+      <remap from="image" to="/usb_cam/image_raw"/>
+      <param name="autosize" value="true" />
+    </node>
+  </group>
+
+  <!-- Load image_proc node: -->
+    <group ns="usb_cam">
+      <node name="image_proc" pkg="image_proc" type="image_proc"/>
+    </group>
+
+
 </launch>
