@@ -26,7 +26,7 @@
 
 cv::Mat init_1_c, init_2_c; //These are the two color images we will use// .
 cv::Mat init_1, init_2; //These are the BW images that will be converted from the color images.
-cv::Mat prevImage, currImage;
+cv::Mat prevImage, currImage, currImage_feat;
 cv::Mat prevImage_c, currImage_c;
 cv::Mat E, R, t, mask, R_f, t_f; //variables for the function.
 //cv::Mat prevPts, currPts;
@@ -41,7 +41,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& image, const sensor_msgs::C
 {
   try
   {
-    cv::imshow("view", cv_bridge::toCvShare(image, "bgr8")->image);
+//    cv::imshow("view", cv_bridge::toCvShare(image, "bgr8")->image);
       // Init logic to ensure two images are captured for initial features
     if (!init)
     {
@@ -125,6 +125,9 @@ void imageCallback(const sensor_msgs::ImageConstPtr& image, const sensor_msgs::C
                  R_f = R*R_f; //rotation
 
              }
+
+             cv::drawKeypoints(currImage, currFeatures, currImage_feat, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
+             cv::imshow("view", currImage_feat);
 
              // try and find more keypoints if enough were found.
              if (prevFeatures.size() < MIN_NUM_FEAT) {
