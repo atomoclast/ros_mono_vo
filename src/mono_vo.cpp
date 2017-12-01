@@ -26,22 +26,22 @@
 
 cv::Mat init_1_c, init_2_c; //These are the two color images we will use// .
 cv::Mat init_1, init_2; //These are the BW images that will be converted from the color images.
-cv::Mat prevImage, currImage, currImage_feat;
+cv::Mat prevImage, currImage;
 cv::Mat prevImage_c, currImage_c;
 cv::Mat E, R, t, mask, R_f, t_f; //variables for the function.
 //cv::Mat prevPts, currPts;
 std::vector<cv::Point2f> points1, points2, prevFeatures, currFeatures; //Vectors to store the coordinates of feature points.
 std::vector<uchar> status;
 double focal_length;
-double scale = 1.00; //TODO Figure out how to add or implement scaling function.
-char text[100];
+double scale = 2.00; //TODO Figure out how to add or implement scaling function.
+
 bool init= false;
 
 void imageCallback(const sensor_msgs::ImageConstPtr& image, const sensor_msgs::CameraInfoConstPtr& cam_info)
 {
   try
   {
-//    cv::imshow("view", cv_bridge::toCvShare(image, "bgr8")->image);
+    cv::imshow("view", cv_bridge::toCvShare(image, "bgr8")->image);
       // Init logic to ensure two images are captured for initial features
     if (!init)
     {
@@ -59,8 +59,8 @@ void imageCallback(const sensor_msgs::ImageConstPtr& image, const sensor_msgs::C
               featureDetection(init_1, points1); //detect features in Img1
               featureTracking(init_1, init_2, points1, points2, status); //track those features to init_2
 
-              focal_length = cam_info->K[0];
-              //focal_length = 1200.0;
+              //focal_length = cam_info->K[0];
+              focal_length = 1200.0;
               std::cout << "Focal Length: " << focal_length << std::endl;
               cv::Point2d ppoint(cam_info->K[2], cam_info->K[5]); //principle point
               std::cout << "Finding essential matrix..." << std::endl;
@@ -90,60 +90,57 @@ void imageCallback(const sensor_msgs::ImageConstPtr& image, const sensor_msgs::C
       if(init) //Main portion of callback right now.
       {
         std::cout << "Visual Odom Publishing..." << std::endl;
-           std::cout << "In main loop" << std::endl;
-             currImage_c = cv_bridge::toCvShare(image, "bgr8")->image;
-             cvtColor(currImage_c,currImage, COLOR_BGR2GRAY);
-             std::cout << "In after colorchange" << std::endl;
+          std::cout << "In main loop" << std::endl;
+            currImage_c = cv_bridge::toCvShare(image, "bgr8")->image;
+            cvtColor(currImage_c,currImage, COLOR_BGR2GRAY);
+            std::cout << "In after colorchange" << std::endl;
 
-             featureTracking(prevImage,currImage, prevFeatures, currFeatures, status);
-             std::cout << "feat track" << std::endl;
+            featureTracking(prevImage,currImage, prevFeatures, currFeatures, status);
+            std::cout << "feat track" << std::endl;
 
-             cv::Point2d ppoint(cam_info->K[2], cam_info->K[5]); //principle point
-             std::cout << "principle point" << std::endl;
+            cv::Point2d ppoint(cam_info->K[2], cam_info->K[5]); //principle point
+            std::cout << "principle point" << std::endl;
 
-             E = cv::findEssentialMat(prevFeatures, currFeatures, focal_length, ppoint, RANSAC, 0.999, 1.0, mask);
-             cv::recoverPose(E, prevFeatures, currFeatures, R, t, focal_length, ppoint, mask);
+            E = cv::findEssentialMat(prevFeatures, currFeatures, focal_length, ppoint, RANSAC, 0.999, 1.0, mask);
+            cv::recoverPose(E, prevFeatures, currFeatures, R, t, focal_length, ppoint, mask);
 
-             cv::Mat prevPts(2, prevFeatures.size(), CV_64F);
-             cv::Mat currPts(2, currFeatures.size(), CV_64F);
+            cv::Mat prevPts(2, prevFeatures.size(), CV_64F);
+            cv::Mat currPts(2, currFeatures.size(), CV_64F);
 
-             for(int i=0;i<prevFeatures.size();i++)  {   //this (x,y) combination makes sense as observed from the source code of triangulatePoints on GitHub
-                 prevPts.at<double>(0,i) = prevFeatures.at(i).x;
-                 prevPts.at<double>(1,i) = prevFeatures.at(i).y;
+            for(int i=0;i<prevFeatures.size();i++)  {   //this (x,y) combination makes sense as observed from the source code of triangulatePoints on GitHub
+                prevPts.at<double>(0,i) = prevFeatures.at(i).x;
+                prevPts.at<double>(1,i) = prevFeatures.at(i).y;
 
-                 currPts.at<double>(0,i) = currFeatures.at(i).x;
-                 currPts.at<double>(1,i) = currFeatures.at(i).y;
-             }
+                currPts.at<double>(0,i) = currFeatures.at(i).x;
+                currPts.at<double>(1,i) = currFeatures.at(i).y;
+            }
 
-             //TODO: scale = getAbsoluteScale(numFrame, 0, t.at<double>(2));
+            //TODO: scale = getAbsoluteScale(numFrame, 0, t.at<double>(2));
 
 
-             if ((scale>0.1)&&(t.at<double>(2) > t.at<double>(0)) && (t.at<double>(2) > t.at<double>(1))) {
-                 //construct trajectory here:
+            if ((scale>0.1)&&(t.at<double>(2) > t.at<double>(0)) && (t.at<double>(2) > t.at<double>(1))) {
+                //construct trajectory here:
 
-                 t_f = t_f + scale*(R_f*t); //translation
-                 R_f = R*R_f; //rotation
+                t_f = t_f + scale*(R_f*t); //translation
+                R_f = R*R_f; //rotation
 
-             }
+            }
 
-             cv::drawKeypoints(currImage, currFeatures, currImage_feat, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
-             cv::imshow("view", currImage_feat);
+            // try and find more keypoints if enough were found.
+            if (prevFeatures.size() < MIN_NUM_FEAT) {
+                std::cout << "Number of tracked features reduced to " << prevFeatures.size() << std::endl;
+                std::cout << "trigerring redection" << std::endl;
+                featureDetection(prevImage, prevFeatures);
+                featureTracking(prevImage,currImage,prevFeatures,currFeatures, status);
 
-             // try and find more keypoints if enough were found.
-             if (prevFeatures.size() < MIN_NUM_FEAT) {
-                 std::cout << "Number of tracked features reduced to " << prevFeatures.size() << std::endl;
-                 std::cout << "triggering reduction" << std::endl;
-                 featureDetection(prevImage, prevFeatures);
-                 featureTracking(prevImage,currImage,prevFeatures,currFeatures, status);
+            }
 
-             }
+            prevImage = currImage.clone();
+            prevFeatures = currFeatures;
 
-             prevImage = currImage.clone();
-             prevFeatures = currFeatures;
+            // sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm", t_f.at<double>(0), t_f.at<double>(1), t_f.at<double>(2));
 
-             sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm", t_f.at<double>(0), t_f.at<double>(1), t_f.at<double>(2));
-
-             std::cout << text << std::endl;
+            // std::cout << text << std::endl;
     }
     cv::waitKey(30);
 
@@ -165,6 +162,8 @@ int main(int argc, char **argv)
     message_filters::Subscriber<sensor_msgs::CameraInfo> info_sub(nh, "usb_cam/camera_info", 1);
     message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::CameraInfo> sync(image_sub, info_sub, 10);
     sync.registerCallback(boost::bind(&imageCallback, _1, _2));
+//  image_transport::ImageTransport it(nh);
+//  image_transport::Subscriber sub = it.subscribe("usb_cam/image_raw", 1, imageCallback);
     ros::spin();
     cv::destroyWindow("view");
 }
